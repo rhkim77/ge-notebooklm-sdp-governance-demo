@@ -1,0 +1,25 @@
+================================================================================
+[PUBLIC INTERNAL GUIDELINE]
+Enterprise Store Operation & Approval Authority Standard Manual (2026 Edition)
+Document ID: POL-OPS-2026-004
+Department : Enterprise Operations & Governance Division
+================================================================================
+
+1. Purpose
+This manual establishes the standard operating procedures (SOP) for regional store
+inventory replenishment, promotional display audits, and approval authority matrices
+across all retail business units.
+
+2. Approval Authority Matrix by Transaction Tier
+- Tier 1 (Under KRW 5,000,000)       : Store Manager / Branch Operations Lead
+- Tier 2 (KRW 5,000,000 - 30,000,000): Regional Operations Director
+- Tier 3 (Over KRW 30,000,000)       : Division Executive & Finance Committee
+
+3. AI Assistant & NotebookLM Usage Guidelines
+- Employees may freely upload and analyze general operational manuals, public
+  merchandising guidelines, and non-sensitive training materials in both Gemini
+  Enterprise Assistant Chat and NotebookLM Enterprise.
+- Documents containing zero Sensitive Data Protection (SDP) InfoType matches
+  receive an immediate ALLOW verdict from the Cloud DLP Content Policy and are
+  indexed into the Notebook workspace without restriction.
+================================================================================

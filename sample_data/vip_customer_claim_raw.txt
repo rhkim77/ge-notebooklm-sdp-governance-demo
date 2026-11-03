@@ -1,0 +1,41 @@
+================================================================================
+[CONFIDENTIAL / INTERNAL TEST SAMPLE]
+VIP Customer Refund & Payment Settlement Escalation Report
+Document ID: DOC-VIP-2026-1103
+Department : Customer Experience & Payment Settlement Team
+================================================================================
+
+1. Incident Overview
+During the Q4 promotional settlement batch, two VIP customer payment records
+experienced duplicate authorization holds at regional retail branches. Below are
+the raw verification records submitted by the branch POS terminal logs for manual
+settlement review.
+
+2. Customer Settlement Records (Contains Sensitive PII / PCI Data)
+--------------------------------------------------------------------------------
+[Record #1 — VIP Platinum Member]
+- Customer Name               : Hong Gil-Dong (홍길동)
+- Korean Resident Reg. No.    : 880514-1234567
+- Contact Phone Number        : 010-8274-5591
+- Primary Settlement Card     : 4532-0151-1283-0366  (VISA, Valid Luhn Checksum)
+- Claim Amount                : KRW 1,450,000
+- Branch Terminal Note        : Duplicate hold occurred during point-redemption retry.
+
+[Record #2 — VIP Gold Member]
+- Customer Name               : Kim Young-Hee (김영희)
+- Korean Resident Reg. No.    : 921123-2345678
+- Contact Phone Number        : 010-3918-7742
+- Backup Corporate Card       : 5425-2334-3010-9903  (MasterCard, Valid Luhn Checksum)
+- Claim Amount                : KRW 890,000
+- Branch Terminal Note        : Manual refund requested via customer care center.
+--------------------------------------------------------------------------------
+
+3. Settlement & Compliance Policy Notes
+- According to Enterprise Data Governance Policy (Section 4.2), unmasked credit
+  card numbers (CREDIT_CARD_NUMBER) and Resident Registration Numbers (KOREA_RRN)
+  must NEVER be uploaded directly to generative AI notebooks or indexed into
+  unmasked RAG Data Stores.
+- All documents ingested into Gemini Enterprise Data Stores must first pass
+  through the Upstream Cloud DLP De-identification Pipeline so that sensitive
+  identifiers are replaced with cryptographic tokens or [REDACTED] markers.
+================================================================================

@@ -1,0 +1,36 @@
+# Virtual environments & Python cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+uv.lock
+
+# Environment variables & local secrets
+.env
+.env.local
+*.pem
+*.key
+*credentials*.json
+
+# Generated sample output artifacts (local build directory)
+build/
+dist/
+sample_data/generated/
+
+# Terraform state & provider cache
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/terraform.tfvars
+terraform/tfplan
+
+# OS / Editor files
+.DS_Store
+.idea/
+.vscode/
+*.swp
