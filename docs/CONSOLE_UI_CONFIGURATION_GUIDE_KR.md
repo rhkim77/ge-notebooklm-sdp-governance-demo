@@ -241,3 +241,44 @@ curl -X PATCH \
    ```text
    resource.type="modelarmor.googleapis.com/Template"
    ```
+
+---
+
+## 8. 개인 `PC` 저장 문서 `Upload` 시 `SDP` 미작동 원인 분석 및 조치 `Guide`
+
+가이드에 따라 설정을 완료했음에도 개인 `PC`에 저장된 문서(`File`)를 `NotebookLM Enterprise`에 `Upload`할 때 `SDP` 차단이 작동하지 않는 경우, 아래 **6가지 핵심 원인** 중 어디에 해당하는지 **3단계 진단 명령**으로 즉시 격리하고 조치할 수 있습니다.
+
+### 8.1 파일 `Format`(`.txt`/`.md` vs `.pdf`/`.docx`/`.pptx`/`.xlsx`)별 `Backend` 스캔 경로 차이 (`[확인됨 / Verified]`)
+`NotebookLM Enterprise`의 `Source Upload` 파이프라인은 내부적으로 **1차 `Blobstore Queue Receiver`(`ProcessingQueueReceiver`)**와 **2차 `Orchestration Server`(`AddSourcesAction`)**의 2단계로 구성되어 있습니다.
+- **`.txt`, `.md` 파일 및 `Copied Text` (`Text` 기반 `Source`)**:
+  - 2차 관문(`AddSourcesAction.kt`)의 `isContentEnabledSdp` 조건(`hasTextContent() || hasVideoContent() || hasWebContent()`)이 `true`로 평가되어 **`ContentSdpValidator`를 통해 텍스트 단위로 즉시 `SDP` 검사 및 차단**이 수행됩니다.
+- **`.pdf`, `.docx`, `.pptx`, `.xlsx` 파일 (`Document` / `Multimodal` 기반 `Source`)**:
+  - `ProcessMessagesAction.kt`에서 `tailwindDocContent` 또는 `inputTailwindDocContent`(`Multimodal PDF`)로 변환되어 2차 관문(`AddSourcesAction.kt`)으로 전달되며, 2차 관문의 `isContentEnabledSdp` 조건에서 제외(`false` 또는 조기 `return`)됩니다.
+  - 따라서 `.pdf`, `.docx`, `.pptx`, `.xlsx` 파일은 오직 **1차 관문(`ProcessingQueueReceiver`의 `Byte` 단위 `DlpService.ApplyContentPolicy` 호출)**에서만 검사되는데, 통합 `ProcessingQueueReceiver` 전환 이후 `enable_sdp_check` 실험 `Flag`가 비활성화되어 있거나 비동기 `PDF` 인제스천 경로(`AddSourcesAsync`)를 타는 경우 **`.txt` 파일은 차단되지만 `.pdf`/`.docx` 파일은 `Upload` 단계 `SDP`를 통과**하는 현상이 발생합니다.
+  - **조치 방안**:
+    1. **검증 분리**: 동일한 민감정보가 포함된 **`.txt` 파일(또는 `Copied Text`)**과 **`.pdf`/`.docx` 파일**을 각각 `Upload`하여 `.txt`는 차단되고 `.pdf`/`.docx`만 통과하는지 확인합니다.
+    2. **`Model Armor` 동시 바인딩 (필수 다계층 방어)**: `.pdf`/`.docx` 파일이 1차 `Upload` 관문을 통과하더라도, `NotebookLM`에 **`Model Armor`(`userPromptTemplate` / `responseTemplate`, `SDP Filter` 활성화)**를 함께 바인딩하면 문서 인덱싱 직후 자동 생성되는 `Notebook Guide`/요약 및 사용자 `Chat` 질의응답 시점(`UncheckedVertexLlmInvoker`)에 `Model Armor`가 작동하여 민감정보 노출을 차단합니다.
+
+### 8.2 `API Payload` 필드명 오류(`sdpPolicy` vs `policy`) 및 덮어쓰기(`Overwrite`) 현상
+- `Console UI`에서 `NotebookLM` `SDP`를 설정한 뒤, `projects.patch` `API`를 호출할 때 `sensitiveDataProtectionPolicy` 하위 필드명을 `"policy"`가 아닌 `"sdpPolicy"`로 전달했거나 `modelArmorConfig`만 포함하여 호출하면 기존 `policy` 값이 빈 문자열(`""`)로 초기화됩니다.
+- **확인 및 조치 명령**:
+  ```bash
+  # 현재 프로젝트에 실제 저장된 notebooklmConfig 조회 (Location이 us인 경우 us-discoveryengine.googleapis.com 사용)
+  curl -s -X GET \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    "https://discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}" | jq '.customerProvidedConfig.notebooklmConfig'
+  ```
+  출력 결과에서 `dataProtectionPolicy.sensitiveDataProtectionPolicy.policy` 값이 `"projects/.../locations/.../contentPolicies/..."` 형태로 정확히 들어있는지 확인하고, 비어 있다면 `make apply-policy` (최신 커밋 기준) 또는 `Console UI`에서 재저장합니다.
+
+### 8.3 `Location` (`global` vs `us` / `eu`) 불일치
+- `NotebookLM Enterprise`는 **노트북이 생성된 `Location`과 동일한 `Location`의 `Customer` 설정(`notebooklmConfig`)**만 참조합니다.
+- `Policy`는 `global`에 바인딩했으나 실제 `NotebookLM` 인스턴스가 `us` 멀티리전(또는 그 반대)에 생성된 경우 정책이 적용되지 않으므로 두 `Location`이 일치하는지 확인합니다.
+
+### 8.4 테스트 문서 내 민감정보 데이터 형식 (`Luhn Checksum` 및 `Likelihood` 조건)
+- **`CREDIT_CARD_NUMBER` (`Luhn Checksum` 검증)**: `1234-5678-1234-5678`과 같이 `Luhn` 알고리즘을 만족하지 않는 임의의 16자리 숫자는 `SDP`가 신용카드 번호로 탐지하지 않습니다. 반드시 유효한 테스트 번호(예: `4532-0151-1283-0366`)를 포함해야 합니다.
+- **한글 문서 내 `KOREA_RRN` 및 컨텍스트**: 주민등록번호(`880101-1234567`) 단독 기재 시 `Likelihood`가 `POSSIBLE`로 평가될 수 있으므로, `Content Policy`의 `Minimum Likelihood`를 `POSSIBLE`로 낮추거나 `'주민등록번호'`, `'RRN'` 등 주변 컨텍스트 단어를 함께 기재하여 테스트합니다.
+- **스캔 이미지(`Image-only PDF`)**: 텍스트 레이어 없이 통짜 이미지로 스캔된 `PDF`는 `OCR` 전 바이트 스트림에서 정규식/사전 매칭이 일어나지 않을 수 있으므로 텍스트 선택(드래그)이 가능한 문서로 테스트합니다.
+
+### 8.5 `CustomerConfigurationCache` 서버 캐시 전파 지연 (최대 10분)
+- `notebooklm-orch-server`는 프로젝트의 `notebooklmConfig`를 인메모리 캐시(`CustomerConfigurationCache`)에 최대 **10분간** 보관합니다. 정책을 최초로 바인딩하거나 수정한 직후에는 **최소 10분 경과 후** 새로운 `Source Upload`를 시도해야 변경된 정책이 확실하게 반영됩니다.
+
