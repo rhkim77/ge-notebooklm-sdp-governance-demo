@@ -38,11 +38,11 @@ def main() -> None:
             "notebooklmConfig": {
                 "dataProtectionPolicy": {
                     "sensitiveDataProtectionPolicy": {
-                        "sdpPolicy": "",
+                        "policy": "",
                     }
                 },
                 "modelArmorConfig": {
-                    "promptTemplate": "",
+                    "userPromptTemplate": "",
                     "responseTemplate": "",
                 },
             }

@@ -100,17 +100,15 @@ def main() -> None:
     # Extract NotebookLM CustomerProvidedConfig
     cust_cfg = project_data.get("customerProvidedConfig", {})
     nlm_cfg = cust_cfg.get("notebooklmConfig", {})
-    nlm_sdp = (
-        nlm_cfg.get("dataProtectionPolicy", {})
-        .get("sensitiveDataProtectionPolicy", {})
-        .get("sdpPolicy", "")
+    sdp_pol_obj = nlm_cfg.get("dataProtectionPolicy", {}).get(
+        "sensitiveDataProtectionPolicy", {}
     )
-    nlm_armor_prompt = (
-        nlm_cfg.get("modelArmorConfig", {}).get("promptTemplate", "")
-    )
-    nlm_armor_resp = (
-        nlm_cfg.get("modelArmorConfig", {}).get("responseTemplate", "")
-    )
+    nlm_sdp = sdp_pol_obj.get("policy", "") or sdp_pol_obj.get("sdpPolicy", "")
+    nlm_armor_cfg = nlm_cfg.get("modelArmorConfig", {})
+    nlm_armor_prompt = nlm_armor_cfg.get(
+        "userPromptTemplate", ""
+    ) or nlm_armor_cfg.get("promptTemplate", "")
+    nlm_armor_resp = nlm_armor_cfg.get("responseTemplate", "")
 
     # Extract GE Assistant Config
     ge_armor_cfg = assistant_data.get("customerPolicy", {}).get(

@@ -306,12 +306,13 @@ def bind_notebooklm_project_config(
             "notebooklmConfig": {
                 "dataProtectionPolicy": {
                     "sensitiveDataProtectionPolicy": {
-                        "sdpPolicy": sdp_policy_name,
+                        "policy": sdp_policy_name,
                     }
                 },
                 "modelArmorConfig": {
-                    "promptTemplate": armor_template_name,
+                    "userPromptTemplate": armor_template_name,
                     "responseTemplate": armor_template_name,
+                    "failureMode": "FAIL_CLOSED",
                 },
             }
         }

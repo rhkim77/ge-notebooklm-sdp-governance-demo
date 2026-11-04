@@ -75,6 +75,7 @@ ge-notebooklm-sdp-governance-demo/
 ├── pyproject.toml                     # Python 의존성 정의 (uv / pip 호환)
 ├── .env.example                       # 환경변수 설정 템플릿
 ├── docs/
+│   ├── CONSOLE_UI_CONFIGURATION_GUIDE_KR.md # [신규] 스크립트 없이 Google Cloud Console UI 메뉴만으로 구성하는 단계별 가이드
 │   ├── DEMO_RUNBOOK_KR.md             # 고객 대면 Live Demo 시연 시나리오 및 단계별 발표 가이드
 │   └── ARCHITECTURE_DEEP_DIVE.md      # Control Plane 분리 구조 및 감사 Logging 상세 기술 명세
 ├── sample_data/
@@ -140,5 +141,6 @@ vi .env
 
 ## 4. 핵심 문서 안내 (`Documentation Links`)
 
+- **[`docs/CONSOLE_UI_CONFIGURATION_GUIDE_KR.md`](docs/CONSOLE_UI_CONFIGURATION_GUIDE_KR.md)**: **(권장 — `No-Script` 메뉴 가이드)** 스크립트 실행 없이 **`Google Cloud Console` 웹 메뉴(`IAM`, `BigQuery`, `Sensitive Data Protection`, `Model Armor`, `Gemini Enterprise`)에서 클릭으로 구성하는 단계별 매뉴얼**.
 - **[`docs/DEMO_RUNBOOK_KR.md`](docs/DEMO_RUNBOOK_KR.md)**: 고객 대면 시연 시 발표자가 그대로 따라 읽으며 시연할 수 있는 **15분 `Live Demo Runbook`** (`Before` 노출 재현 $\rightarrow$ 3계층 보안 적용 $\rightarrow$ `After` 차단 및 `BigQuery` 감사 로그 확인).
 - **[`docs/ARCHITECTURE_DEEP_DIVE.md`](docs/ARCHITECTURE_DEEP_DIVE.md)**: `GE` vs. `NotebookLM` `Control Plane` 아키텍처, `Multi-Region` (`global` vs `us`) 일치 규칙, `Service Agent IAM Role` 명세, 그리고 4대 감사 로깅 채널 상세 분석.
