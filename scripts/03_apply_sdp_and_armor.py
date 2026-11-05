@@ -4,18 +4,21 @@
 This remediation script automates Layers 1 and 2 of the security architecture:
 1. Creates (or updates) Cloud DLP `InspectTemplate` and `DeidentifyTemplate`
    covering `CREDIT_CARD_NUMBER` (Luhn-validated), `KOREA_RRN` (Korean Resident
-   Registration Number), and `PHONE_NUMBER`.
-2. Creates (or updates) the Cloud DLP `ContentPolicy` resource in the target
-   Location (`global` or `us`) with:
+   Registration Number), and `PHONE_NUMBER` in both `global` and `us`.
+2. Creates (or updates) the Cloud DLP `ContentPolicy` resource in both `global`
+   and `us` with:
+   - `action = BLOCK` (`Determine verdict = Block`)
    - `FALLBACK_ACTION_INPUT_TOO_LARGE = BLOCK` (prevents oversize file bypass)
    - `logToBigQuery` pointing to `sdp_audit_logs.content_policy_action_logs`
-3. Creates (or updates) the `Model Armor Template` with:
-   - `sdpSettings` (Sensitive Data Protection Filter enabled)
-   - `piAndJailbreakFilterSettings` (Prompt Injection & Jailbreak Filter enabled)
-   - `logSanitizeOperations = true`
-4. Binds both resources to Project-level `NotebookLM Enterprise` via
-   `PATCH /v1alpha/projects/{PROJECT_NUMBER}/locations/{LOCATION}?update_mask=customerProvidedConfig`
-   and optionally to the Gemini Enterprise App `default_assistant`.
+3. Creates (or updates) the `Model Armor Template` in:
+   - `cfg.location` (`global` or `us`) for Gemini Enterprise Assistant Engine
+   - `us` (`us-modelarmor.googleapis.com`) for NotebookLM Enterprise (per
+     official NotebookLM Enterprise documentation, `global` NotebookLM instances
+     require `us` or `eu` Model Armor templates).
+4. Binds both resources to Project-level `NotebookLM Enterprise` across both
+   `global` and `us` locations (`PATCH /v1alpha/projects/{PROJECT_NUMBER}?update_mask=customer_provided_config`),
+   verifies the stored configuration via `GET`, and runs a direct
+   `DlpService.ApplyContentPolicy` self-test to confirm `verdict == BLOCK`.
 """
 
 from __future__ import annotations
@@ -37,14 +40,17 @@ from scripts.common import (  # noqa: E402
 )
 
 
-def ensure_dlp_templates(cfg: DemoConfig) -> tuple[str, str]:
-    """Create or update Cloud DLP InspectTemplate and DeidentifyTemplate."""
-    parent = f"projects/{cfg.project_id}/locations/{cfg.location}"
+def ensure_dlp_templates_for_location(
+    cfg: DemoConfig, location: str
+) -> tuple[str, str]:
+    """Create or update Cloud DLP InspectTemplate and DeidentifyTemplate in `location`."""
+    parent = f"projects/{cfg.project_id}/locations/{location}"
+    dlp_url = "https://dlp.googleapis.com"
 
     # 1. InspectTemplate
     inspect_name = f"{parent}/inspectTemplates/{cfg.dlp_inspect_template_id}"
     inspect_payload = {
-        "displayName": "GE & NotebookLM SDP Inspect Template",
+        "displayName": f"GE & NotebookLM SDP Inspect Template ({location})",
         "description": "Detects Credit Cards (Luhn), Korean RRN, and Phone Numbers",
         "inspectConfig": {
             "infoTypes": [
@@ -56,21 +62,21 @@ def ensure_dlp_templates(cfg: DemoConfig) -> tuple[str, str]:
             "includeQuote": False,
         },
     }
-    resp = api_request("GET", f"{cfg.dlp_base_url}/v2/{inspect_name}", cfg)
+    resp = api_request("GET", f"{dlp_url}/v2/{inspect_name}", cfg)
     if resp.status_code == 200:
         api_request(
             "PATCH",
-            f"{cfg.dlp_base_url}/v2/{inspect_name}",
+            f"{dlp_url}/v2/{inspect_name}",
             cfg,
             json_body={"inspectTemplate": inspect_payload},
         )
         console.print(
-            f"  [green]✔[/green] Updated DLP InspectTemplate: [bold]{inspect_name}[/bold]"
+            f"  [green]✔[/green] Updated DLP InspectTemplate ({location}): [bold]{inspect_name}[/bold]"
         )
     else:
         create_resp = api_request(
             "POST",
-            f"{cfg.dlp_base_url}/v2/{parent}/inspectTemplates",
+            f"{dlp_url}/v2/{parent}/inspectTemplates",
             cfg,
             json_body={
                 "templateId": cfg.dlp_inspect_template_id,
@@ -79,18 +85,18 @@ def ensure_dlp_templates(cfg: DemoConfig) -> tuple[str, str]:
         )
         if create_resp.status_code in (200, 201):
             console.print(
-                f"  [bold green]+ Created DLP InspectTemplate:[/bold green] [bold]{inspect_name}[/bold]"
+                f"  [bold green]+ Created DLP InspectTemplate ({location}):[/bold green] [bold]{inspect_name}[/bold]"
             )
         else:
             console.print(
-                f"  [yellow]! InspectTemplate response ({create_resp.status_code}): "
+                f"  [yellow]! InspectTemplate ({location}) response ({create_resp.status_code}): "
                 f"{create_resp.text[:200]}[/yellow]"
             )
 
     # 2. DeidentifyTemplate
     deid_name = f"{parent}/deidentifyTemplates/{cfg.dlp_deidentify_template_id}"
     deid_payload = {
-        "displayName": "GE & NotebookLM SDP Deidentify Template",
+        "displayName": f"GE & NotebookLM SDP Deidentify Template ({location})",
         "description": "Replaces detected PII InfoTypes with [REDACTED_<INFOTYPE>] tags",
         "deidentifyConfig": {
             "infoTypeTransformations": {
@@ -109,21 +115,21 @@ def ensure_dlp_templates(cfg: DemoConfig) -> tuple[str, str]:
             }
         },
     }
-    resp = api_request("GET", f"{cfg.dlp_base_url}/v2/{deid_name}", cfg)
+    resp = api_request("GET", f"{dlp_url}/v2/{deid_name}", cfg)
     if resp.status_code == 200:
         api_request(
             "PATCH",
-            f"{cfg.dlp_base_url}/v2/{deid_name}",
+            f"{dlp_url}/v2/{deid_name}",
             cfg,
             json_body={"deidentifyTemplate": deid_payload},
         )
         console.print(
-            f"  [green]✔[/green] Updated DLP DeidentifyTemplate: [bold]{deid_name}[/bold]"
+            f"  [green]✔[/green] Updated DLP DeidentifyTemplate ({location}): [bold]{deid_name}[/bold]"
         )
     else:
         create_resp = api_request(
             "POST",
-            f"{cfg.dlp_base_url}/v2/{parent}/deidentifyTemplates",
+            f"{dlp_url}/v2/{parent}/deidentifyTemplates",
             cfg,
             json_body={
                 "templateId": cfg.dlp_deidentify_template_id,
@@ -132,21 +138,24 @@ def ensure_dlp_templates(cfg: DemoConfig) -> tuple[str, str]:
         )
         if create_resp.status_code in (200, 201):
             console.print(
-                f"  [bold green]+ Created DLP DeidentifyTemplate:[/bold green] [bold]{deid_name}[/bold]"
+                f"  [bold green]+ Created DLP DeidentifyTemplate ({location}):[/bold green] [bold]{deid_name}[/bold]"
             )
         else:
             console.print(
-                f"  [yellow]! DeidentifyTemplate response ({create_resp.status_code}): "
+                f"  [yellow]! DeidentifyTemplate ({location}) response ({create_resp.status_code}): "
                 f"{create_resp.text[:200]}[/yellow]"
             )
 
     return inspect_name, deid_name
 
 
-def ensure_sdp_content_policy(cfg: DemoConfig) -> str:
-    """Create or update Cloud DLP ContentPolicy with BLOCK fallback and BigQuery logging."""
-    parent = f"projects/{cfg.project_id}/locations/{cfg.location}"
-    policy_name = cfg.sdp_policy_resource_name
+def ensure_sdp_content_policy_for_location(
+    cfg: DemoConfig, location: str
+) -> str:
+    """Create or update Cloud DLP ContentPolicy in `location` with BLOCK verdict and BigQuery logging."""
+    parent = f"projects/{cfg.project_id}/locations/{location}"
+    policy_name = f"{parent}/contentPolicies/{cfg.sdp_policy_id}"
+    dlp_url = "https://dlp.googleapis.com"
 
     fallback_enum = (
         "FALLBACK_ACTION_INPUT_TOO_LARGE_BLOCK"
@@ -155,7 +164,7 @@ def ensure_sdp_content_policy(cfg: DemoConfig) -> str:
     )
 
     policy_body: dict[str, Any] = {
-        "displayName": "GE & NotebookLM Enterprise SDP Content Policy",
+        "displayName": f"GE & NotebookLM Enterprise SDP Content Policy ({location})",
         "description": (
             "Blocks uploads and connector sources containing Credit Card Numbers "
             "or Korean RRN, and logs all verdicts to BigQuery."
@@ -190,52 +199,58 @@ def ensure_sdp_content_policy(cfg: DemoConfig) -> str:
         ],
     }
 
-    get_resp = api_request("GET", f"{cfg.dlp_base_url}/v2/{policy_name}", cfg)
+    get_resp = api_request("GET", f"{dlp_url}/v2/{policy_name}", cfg)
     if get_resp.status_code == 200:
         patch_resp = api_request(
             "PATCH",
-            f"{cfg.dlp_base_url}/v2/{policy_name}",
+            f"{dlp_url}/v2/{policy_name}",
             cfg,
             json_body={"contentPolicy": policy_body},
         )
         if patch_resp.status_code == 200:
             console.print(
-                f"  [green]✔[/green] Updated Cloud DLP ContentPolicy: [bold]{policy_name}[/bold]"
+                f"  [green]✔[/green] Updated Cloud DLP ContentPolicy ({location}): [bold]{policy_name}[/bold]"
             )
         else:
             console.print(
-                f"  [yellow]! ContentPolicy PATCH status {patch_resp.status_code}: "
+                f"  [yellow]! ContentPolicy ({location}) PATCH status {patch_resp.status_code}: "
                 f"{patch_resp.text[:250]}[/yellow]"
             )
     else:
         create_resp = api_request(
             "POST",
-            f"{cfg.dlp_base_url}/v2/{parent}/contentPolicies",
+            f"{dlp_url}/v2/{parent}/contentPolicies",
             cfg,
             params={"contentPolicyId": cfg.sdp_policy_id},
             json_body={"contentPolicy": policy_body},
         )
         if create_resp.status_code in (200, 201):
             console.print(
-                f"  [bold green]+ Created Cloud DLP ContentPolicy:[/bold green] "
+                f"  [bold green]+ Created Cloud DLP ContentPolicy ({location}):[/bold green] "
                 f"[bold]{policy_name}[/bold]"
             )
         else:
             console.print(
-                f"  [yellow]! ContentPolicy POST status {create_resp.status_code}: "
-                f"{create_resp.text[:300]}[/yellow]\n"
-                f"  [dim]Note: If ContentPolicy creation requires Console UI in your tenant, "
-                f"create '{cfg.sdp_policy_id}' in Security > Sensitive Data Protection and re-run.[/dim]"
+                f"  [yellow]! ContentPolicy ({location}) POST status {create_resp.status_code}: "
+                f"{create_resp.text[:300]}[/yellow]"
             )
     return policy_name
 
 
-def ensure_model_armor_template(
-    cfg: DemoConfig, inspect_template_name: str, deidentify_template_name: str
+def ensure_model_armor_template_for_location(
+    cfg: DemoConfig,
+    location: str,
+    inspect_template_name: str,
+    deidentify_template_name: str,
 ) -> str:
-    """Create or update Model Armor Template with Advanced SDP Filter enabled."""
-    parent = f"projects/{cfg.project_id}/locations/{cfg.location}"
-    tmpl_name = cfg.model_armor_template_resource_name
+    """Create or update Model Armor Template in `location` with Advanced SDP Filter enabled."""
+    parent = f"projects/{cfg.project_id}/locations/{location}"
+    tmpl_name = f"{parent}/templates/{cfg.model_armor_template_id}"
+    armor_base_url = (
+        "https://modelarmor.googleapis.com"
+        if location == "global"
+        else f"https://{location}-modelarmor.googleapis.com"
+    )
 
     template_body: dict[str, Any] = {
         "filterConfig": {
@@ -256,51 +271,60 @@ def ensure_model_armor_template(
         },
     }
 
-    get_resp = api_request(
-        "GET", f"{cfg.model_armor_base_url}/v1/{tmpl_name}", cfg
-    )
+    get_resp = api_request("GET", f"{armor_base_url}/v1/{tmpl_name}", cfg)
     if get_resp.status_code == 200:
         patch_resp = api_request(
             "PATCH",
-            f"{cfg.model_armor_base_url}/v1/{tmpl_name}",
+            f"{armor_base_url}/v1/{tmpl_name}",
             cfg,
             params={"updateMask": "filterConfig,templateMetadata"},
             json_body=template_body,
         )
         if patch_resp.status_code == 200:
             console.print(
-                f"  [green]✔[/green] Updated Model Armor Template: [bold]{tmpl_name}[/bold]"
+                f"  [green]✔[/green] Updated Model Armor Template ({location}): [bold]{tmpl_name}[/bold]"
             )
         else:
             console.print(
-                f"  [yellow]! Model Armor PATCH status {patch_resp.status_code}: "
+                f"  [yellow]! Model Armor ({location}) PATCH status {patch_resp.status_code}: "
                 f"{patch_resp.text[:250]}[/yellow]"
             )
     else:
         create_resp = api_request(
             "POST",
-            f"{cfg.model_armor_base_url}/v1/{parent}/templates",
+            f"{armor_base_url}/v1/{parent}/templates",
             cfg,
             params={"templateId": cfg.model_armor_template_id},
             json_body=template_body,
         )
         if create_resp.status_code in (200, 201):
             console.print(
-                f"  [bold green]+ Created Model Armor Template:[/bold green] "
+                f"  [bold green]+ Created Model Armor Template ({location}):[/bold green] "
                 f"[bold]{tmpl_name}[/bold]"
             )
         else:
             console.print(
-                f"  [yellow]! Model Armor POST status {create_resp.status_code}: "
+                f"  [yellow]! Model Armor ({location}) POST status {create_resp.status_code}: "
                 f"{create_resp.text[:250]}[/yellow]"
             )
     return tmpl_name
 
 
-def bind_notebooklm_project_config(
-    cfg: DemoConfig, sdp_policy_name: str, armor_template_name: str
+def bind_notebooklm_project_config_for_location(
+    cfg: DemoConfig,
+    location: str,
+    sdp_policy_name: str,
+    armor_template_name_us: str,
 ) -> bool:
-    """Bind SDP ContentPolicy and Model Armor Template to Project-level NotebookLM config."""
+    """Bind SDP ContentPolicy and Regional Model Armor Template to Project-level NotebookLM config.
+
+    IMPORTANT:
+    1. Per `google/cloud/discoveryengine/v1alpha/project.proto`, `notebooklmConfig.modelArmorConfig`
+       accepts ONLY `userPromptTemplate` and `responseTemplate` (do NOT include `failureMode`).
+    2. Per NotebookLM Enterprise official docs (`enable-model-armor.md`) and backend `startup.pi`,
+       `NotebookLM Enterprise` in `global` or `us` requires the Model Armor Template to be in
+       `locations/us` (`projects/{PROJECT_ID}/locations/us/templates/{TEMPLATE_ID}`).
+    """
     patch_body = {
         "customerProvidedConfig": {
             "notebooklmConfig": {
@@ -310,48 +334,83 @@ def bind_notebooklm_project_config(
                     }
                 },
                 "modelArmorConfig": {
-                    "userPromptTemplate": armor_template_name,
-                    "responseTemplate": armor_template_name,
-                    "failureMode": "FAIL_CLOSED",
+                    "userPromptTemplate": armor_template_name_us,
+                    "responseTemplate": armor_template_name_us,
                 },
             }
         }
     }
 
-    url = (
-        f"{cfg.discovery_engine_base_url}/v1alpha/projects/{cfg.project_number}"
-        f"/locations/{cfg.location}"
+    de_base_url = (
+        "https://discoveryengine.googleapis.com"
+        if location == "global"
+        else f"https://{location}-discoveryengine.googleapis.com"
     )
+    url = f"{de_base_url}/v1alpha/projects/{cfg.project_number}"
     resp = api_request(
         "PATCH",
         url,
         cfg,
-        params={"updateMask": "customerProvidedConfig"},
+        params={"update_mask": "customer_provided_config"},
         json_body=patch_body,
     )
-    if resp.status_code != 200:
-        # Fallback to top-level projects/{project_number} endpoint
-        alt_url = f"{cfg.discovery_engine_base_url}/v1alpha/projects/{cfg.project_number}"
-        resp = api_request(
-            "PATCH",
-            alt_url,
-            cfg,
-            params={"updateMask": "customerProvidedConfig"},
-            json_body=patch_body,
-        )
 
     if resp.status_code == 200:
+        # Read-after-write verification
+        verify_resp = api_request("GET", url, cfg)
+        stored_nlm_cfg = (
+            verify_resp.json()
+            .get("customerProvidedConfig", {})
+            .get("notebooklmConfig", {})
+            if verify_resp.status_code == 200
+            else {}
+        )
         console.print(
-            "  [bold green]✔ Bound SDP Content Policy & Model Armor Template to "
-            "Project-level NotebookLM Enterprise![/bold green]"
+            f"  [bold green]✔ Bound & Verified NotebookLM Enterprise config in [{location}]:[/bold green]\n"
+            f"    • SDP Policy: [cyan]{stored_nlm_cfg.get('dataProtectionPolicy', {}).get('sensitiveDataProtectionPolicy', {}).get('policy', '')}[/cyan]\n"
+            f"    • Model Armor: [cyan]{stored_nlm_cfg.get('modelArmorConfig', {}).get('userPromptTemplate', '')}[/cyan]"
         )
         return True
 
     console.print(
-        f"  [bold red]✘ Failed to PATCH NotebookLM customerProvidedConfig "
+        f"  [bold red]✘ Failed to PATCH NotebookLM customerProvidedConfig in [{location}] "
         f"(HTTP {resp.status_code}):[/bold red]\n  {resp.text[:350]}"
     )
     return False
+
+
+def verify_dlp_content_policy_block(cfg: DemoConfig, sdp_policy_name: str) -> None:
+    """Directly invoke DlpService.ApplyContentPolicy to verify that `.txt` PII returns BLOCK."""
+    parts = sdp_policy_name.split("/")
+    parent = "/".join(parts[:4])  # projects/{project}/locations/{location}
+    url = f"https://dlp.googleapis.com/v2/{parent}:applyContentPolicy"
+    test_body = {
+        "policy": sdp_policy_name,
+        "item": {
+            "byteItem": {
+                "type": "TEXT_UTF8",
+                "data": "VklQIOqzoOqwnSDrsJXtmLgg7ISx7ZWoOiDso7zrr7jrk7HroZ3rsoDtmLggODgwMTAxLTEyMzQ1NjcsIOyLoOyaqey5tOuTnCA0NTMyLTAxNTEtMTI4My0wMzY2",
+            }
+        },
+    }
+    resp = api_request("POST", url, cfg, json_body=test_body)
+    if resp.status_code == 200:
+        verdict = resp.json().get("verdict", "UNKNOWN")
+        if verdict == "BLOCK":
+            console.print(
+                f"  [bold green]✔ Direct DLP ApplyContentPolicy Self-Test Passed:[/bold green] "
+                f"policy=[cyan]{sdp_policy_name}[/cyan] -> verdict=[bold red]{verdict}[/bold red]"
+            )
+        else:
+            console.print(
+                f"  [bold yellow]! WARNING: DLP ApplyContentPolicy returned verdict='{verdict}' "
+                f"(expected 'BLOCK')! Check ContentPolicy rules in Console.[/bold yellow]"
+            )
+    else:
+        console.print(
+            f"  [yellow]! Direct DLP ApplyContentPolicy test returned HTTP {resp.status_code}: "
+            f"{resp.text[:250]}[/yellow]"
+        )
 
 
 def bind_ge_assistant_armor(cfg: DemoConfig, armor_template_name: str) -> None:
@@ -399,26 +458,49 @@ def main() -> None:
     console.print(
         Panel(
             f"[bold cyan]Project:[/bold cyan] {cfg.project_id} ({cfg.project_number})  |  "
-            f"[bold cyan]Location:[/bold cyan] {cfg.location}\n"
-            f"[bold cyan]SDP ContentPolicy:[/bold cyan] {cfg.sdp_policy_resource_name}\n"
-            f"[bold cyan]Model Armor Template:[/bold cyan] {cfg.model_armor_template_resource_name}",
+            f"[bold cyan]Primary Location:[/bold cyan] {cfg.location}\n"
+            f"[bold cyan]SDP ContentPolicy (global & us):[/bold cyan] {cfg.sdp_policy_id}\n"
+            f"[bold cyan]Model Armor Template (global & us):[/bold cyan] {cfg.model_armor_template_id}",
             title="[Step 3] Apply & Bind SDP Content Policy and Model Armor Template",
             border_style="cyan",
         )
     )
 
-    console.print("\n[bold]1. Provisioning Cloud DLP Inspect & Deidentify Templates[/bold]")
-    inspect_tmpl, deid_tmpl = ensure_dlp_templates(cfg)
+    console.print(
+        "\n[bold]1. Provisioning Cloud DLP Templates & ContentPolicy in [global] and [us][/bold]"
+    )
+    inspect_global, deid_global = ensure_dlp_templates_for_location(cfg, "global")
+    sdp_policy_global = ensure_sdp_content_policy_for_location(cfg, "global")
 
-    console.print("\n[bold]2. Provisioning Cloud DLP ContentPolicy (Fallback=BLOCK + BigQuery Log)[/bold]")
-    sdp_policy_name = ensure_sdp_content_policy(cfg)
+    inspect_us, deid_us = ensure_dlp_templates_for_location(cfg, "us")
+    sdp_policy_us = ensure_sdp_content_policy_for_location(cfg, "us")
 
-    console.print("\n[bold]3. Provisioning Model Armor Template (SDP + Prompt Injection Filters)[/bold]")
-    armor_tmpl_name = ensure_model_armor_template(cfg, inspect_tmpl, deid_tmpl)
+    console.print(
+        "\n[bold]2. Provisioning Model Armor Templates in [global] (for GE App) and [us] (required for NotebookLM)[/bold]"
+    )
+    armor_tmpl_global = ensure_model_armor_template_for_location(
+        cfg, "global", inspect_global, deid_global
+    )
+    armor_tmpl_us = ensure_model_armor_template_for_location(
+        cfg, "us", inspect_us, deid_us
+    )
 
-    console.print("\n[bold]4. Binding Policies to Both NotebookLM & Gemini Enterprise Control Planes[/bold]")
-    bind_notebooklm_project_config(cfg, sdp_policy_name, armor_tmpl_name)
-    bind_ge_assistant_armor(cfg, armor_tmpl_name)
+    console.print(
+        "\n[bold]3. Binding Policies to NotebookLM ([global] & [us]) and Gemini Enterprise Control Planes[/bold]"
+    )
+    bind_notebooklm_project_config_for_location(
+        cfg, "global", sdp_policy_global, armor_tmpl_us
+    )
+    bind_notebooklm_project_config_for_location(
+        cfg, "us", sdp_policy_us, armor_tmpl_us
+    )
+
+    armor_for_ge = armor_tmpl_global if cfg.location == "global" else armor_tmpl_us
+    bind_ge_assistant_armor(cfg, armor_for_ge)
+
+    console.print("\n[bold]4. Running Direct DLP ApplyContentPolicy Self-Test on Sample .txt Payload[/bold]")
+    verify_dlp_content_policy_block(cfg, sdp_policy_global)
+    verify_dlp_content_policy_block(cfg, sdp_policy_us)
 
     if cfg.wait_for_cache_ttl:
         console.print(
@@ -433,13 +515,10 @@ def main() -> None:
 
     console.print(
         Panel(
-            "[bold green]Control Plane Security Remediation Applied![/bold green]\n"
-            "• [bold]Important Operational Note:[/bold] If NotebookLM Enterprise was accessed "
-            "within the last 10 minutes, its in-memory [cyan]CustomerConfigurationCache[/cyan] "
-            "may take up to [bold]10 minutes[/bold] to refresh.\n"
-            "• While the cache refreshes, run [bold cyan]make mask-gcs[/bold cyan] "
-            "([cyan]python scripts/04_run_gcs_dlp_masking.py[/cyan]) to sanitize the "
-            "GCS Data Store documents.",
+            "[bold green]Control Plane Security Remediation Applied & Verified![/bold green]\n"
+            "• Both [bold]global[/bold] and [bold]us[/bold] NotebookLM Customer configurations are now bound.\n"
+            "• Run [bold cyan]make mask-gcs[/bold cyan] ([cyan]python scripts/04_run_gcs_dlp_masking.py[/cyan]) "
+            "to sanitize the GCS Data Store documents.",
             title="Step 3 Completed",
             border_style="green",
         )

@@ -104,13 +104,15 @@ flowchart TD
 2. **`+ CREATE TEMPLATE`**을 클릭합니다.
 3. 기본 정보를 입력합니다:
    - **`Template ID`**: `ge-notebooklm-armor-tmpl`
-   - **`Region` (`Location`)**: `GE App` 및 `NotebookLM`과 동일한 `Location` (`global` 또는 `us`) 선택
+   - **`Region` (`Location`)**:
+     - `GE Assistant`가 `global`인 경우 `global`에 1개 생성합니다.
+     - **[필수 주의사항]** **`NotebookLM Enterprise`는 `NotebookLM` 인스턴스가 `global`에 있더라도 반드시 `Multi-region > us` (또는 `eu`)에 생성된 `Model Armor Template`만 허용**합니다 (`locations/global` 템플릿을 `NotebookLM`에 연결하면 백엔드에서 `Allowed locations: [us, eu]` 예외가 발생하여 스캔이 무시됨). 따라서 **`us` (`Multi-region > US`)에도 동일한 이름(`ge-notebooklm-armor-tmpl`)으로 템플릿을 반드시 생성**합니다 (사전에 `Step 3.1`의 `Inspect` / `De-identify Template`도 `us`에 함께 생성).
 4. **`Filters` 구성**:
    - **`Prompt injection and jailbreak detection`**: 체크 활성화 (`Confidence level`: `Medium and above`)
    - **`Sensitive Data Protection (SDP)`**: 체크 활성화
      - **`Configuration mode`**: **`Advanced`** 선택
-     - **`Inspect template`**: `Step 3.1`에서 생성한 `projects/{PROJECT_ID}/locations/{LOCATION}/inspectTemplates/ge-notebooklm-inspect-tmpl` 입력
-     - **`De-identify template`**: `Step 3.1`에서 생성한 `projects/{PROJECT_ID}/locations/{LOCATION}/deidentifyTemplates/ge-notebooklm-deid-tmpl` 입력
+     - **`Inspect template`**: 해당 `Location`(`global` 또는 `us`)에 생성한 `projects/{PROJECT_ID}/locations/{LOCATION}/inspectTemplates/ge-notebooklm-inspect-tmpl` 입력
+     - **`De-identify template`**: 해당 `Location`(`global` 또는 `us`)에 생성한 `projects/{PROJECT_ID}/locations/{LOCATION}/deidentifyTemplates/ge-notebooklm-deid-tmpl` 입력
 5. **`Logging` 구성**:
    - 하단의 **`Log sanitize operations` (살균/검열 작업 로깅)** 체크박스를 활성화하고 **`CREATE`**를 클릭합니다.
 
@@ -123,13 +125,13 @@ flowchart TD
 | 설정 메뉴 위치 (`Console Navigation Path`) | 적용 대상 서비스 | 연결할 보안 리소스 | `Console UI` 지원 여부 |
 | :--- | :--- | :--- | :---: |
 | **`Gemini Enterprise` > `Security` > `Sensitive Data Protection configuration`** | 1) `GE Assistant` 첨부파일<br/>2) **`NotebookLM` 직접 `Upload` 파일** | `Step 3.2`의 `SDP Content Policy`<br/>(`ge-notebooklm-sdp-policy`) | **100% `UI` 지원** |
-| **`Gemini Enterprise` > `Apps` > `[대상 App]` > `Configurations` > `Assistant`** | `GE Assistant Chat` (`Prompt`, `GCS` 검색 문맥, `Response`) | `Step 4`의 `Model Armor Template`<br/>(`ge-notebooklm-armor-tmpl`) | **100% `UI` 지원** |
-| **`Console` 우측 상단 `Cloud Shell` (`>_`) 1회 실행** | **`NotebookLM Chat`** (`Prompt` & `Response`) | `Step 3.2` `SDP Policy` + `Step 4` `Model Armor Template` | `Cloud Shell` 1줄 실행 |
+| **`Gemini Enterprise` > `Apps` > `[대상 App]` > `Configurations` > `Assistant`** | `GE Assistant Chat` (`Prompt`, `GCS` 검색 문맥, `Response`) | `Step 4`의 `Model Armor Template`<br/>(`locations/global` 또는 `us`) | **100% `UI` 지원** |
+| **`Console` 우측 상단 `Cloud Shell` (`>_`) 1회 실행** | **`NotebookLM Chat` 및 요약** (`Prompt` & `Response`) | `Step 3.2` `SDP Policy` + `Step 4` `Model Armor Template` (**`locations/us` 필수**) | `Cloud Shell` 1줄 실행 |
 
 ### 5.1 `Console UI`에서 `Assistant` 및 `NotebookLM` 업로드용 `SDP Content Policy` 연결
 1. 좌측 메뉴(`☰`)에서 **`Gemini Enterprise` (또는 `AI Applications` / `Agentspace`) > `Security`** 메뉴로 이동합니다.
 2. **`Sensitive Data Protection configuration`** 탭을 선택합니다.
-3. 상단 **`Region`** 드롭다운에서 사용 중인 `Location` (**`global`** 또는 **`us`**)을 선택합니다. *(참고: 만약 고객사에서 `global`과 `us`를 모두 사용 중이라면 두 `Region` 각각에서 수행합니다.)*
+3. 상단 **`Region`** 드롭다운에서 사용 중인 `Location` (**`global`** 및 **`us`**)을 각각 선택하여 아래 설정을 적용합니다.
 4. **1) `Assistant setting` 섹션**:
    - **`Edit`**를 클릭하고 `Step 3.2`에서 생성한 `ge-notebooklm-sdp-policy`를 선택하여 저장합니다.
 5. **2) `NotebookLM setting` 섹션 (핵심!)**:
@@ -143,37 +145,46 @@ flowchart TD
 3. **`Model Armor`** 설정 영역에서 **`Edit`**를 클릭합니다.
 4. **`Prompt template`** 및 **`Response template`** 드롭다운에서 `Step 4`에서 생성한 `ge-notebooklm-armor-tmpl`을 선택하고 **`Save`**를 클릭합니다.
 
-### 5.3 `NotebookLM Chat`에 `Model Armor Template` 추가 바인딩 (`Console` 내 `Cloud Shell` 1회 실행)
-`NotebookLM Enterprise`의 대화창(`Chat`)에서도 `Model Armor`가 동작하도록 하려면, `Google Cloud Console` 우측 상단의 **`Activate Cloud Shell` (`>_`)** 버튼을 클릭하고 아래 명령어를 복사해 붙여넣습니다:
+### 5.3 `NotebookLM`에 `SDP Policy` 및 `us` `Model Armor Template` 동시 바인딩 (`Console` 내 `Cloud Shell` 1회 실행)
+`NotebookLM Enterprise`에서 `SDP Policy`와 `Model Armor`가 누락 없이 동작하도록 하려면, `Google Cloud Console` 우측 상단의 **`Activate Cloud Shell` (`>_`)** 버튼을 클릭하고 아래 명령어를 복사해 붙여넣습니다.
+
+> **[!IMPORTANT] `NotebookLM` `projects.patch` 호출 시 필수 주의사항 2가지**
+> 1. **`failureMode` 필드 제외 필수**: `GE Assistant`와 달리 `notebooklmConfig.modelArmorConfig` 스키마는 `userPromptTemplate`과 `responseTemplate`만 지원하며 `"failureMode"` 필드를 지원하지 않습니다. `"failureMode": "FAIL_CLOSED"`를 포함하면 `HTTP 400 Invalid JSON payload received. Unknown name "failureMode"` 오류가 발생하여 **`SDP Policy`를 포함한 전체 설정이 거부(`{}`)**됩니다.
+> 2. **`Model Armor Template`은 반드시 `locations/us` (또는 `eu`) 경로 지정**: `NotebookLM`이 `global`에 배포되어 있더라도 `modelArmorConfig`의 템플릿 경로는 반드시 `projects/${PROJECT_ID}/locations/us/templates/ge-notebooklm-armor-tmpl`을 지정해야 합니다.
 
 ```bash
 export PROJECT_ID=$(gcloud config get-value project)
 export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
-# 사용 중인 Location에 맞게 global 또는 us 지정 (global인 경우 API_ENDPOINT="https://discoveryengine.googleapis.com")
-export LOCATION="global"
-export API_ENDPOINT="https://discoveryengine.googleapis.com"
 
-curl -X PATCH \
-  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
-  -H "Content-Type: application/json" \
-  -H "X-Goog-User-Project: ${PROJECT_ID}" \
-  "${API_ENDPOINT}/v1alpha/projects/${PROJECT_NUMBER}?update_mask=customerProvidedConfig" \
-  -d "{
-    \"customerProvidedConfig\": {
-      \"notebooklmConfig\": {
-        \"dataProtectionPolicy\": {
-          \"sensitiveDataProtectionPolicy\": {
-            \"policy\": \"projects/${PROJECT_ID}/locations/${LOCATION}/contentPolicies/ge-notebooklm-sdp-policy\"
+# global 및 us 양쪽 Location 모두에 안전하게 바인딩
+for LOC in global us; do
+  if [ "${LOC}" = "global" ]; then
+    API_ENDPOINT="https://discoveryengine.googleapis.com"
+  else
+    API_ENDPOINT="https://${LOC}-discoveryengine.googleapis.com"
+  fi
+
+  curl -s -X PATCH \
+    -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+    -H "Content-Type: application/json" \
+    -H "X-Goog-User-Project: ${PROJECT_ID}" \
+    "${API_ENDPOINT}/v1alpha/projects/${PROJECT_NUMBER}?update_mask=customerProvidedConfig.notebooklmConfig" \
+    -d "{
+      \"customerProvidedConfig\": {
+        \"notebooklmConfig\": {
+          \"dataProtectionPolicy\": {
+            \"sensitiveDataProtectionPolicy\": {
+              \"policy\": \"projects/${PROJECT_ID}/locations/${LOC}/contentPolicies/ge-notebooklm-sdp-policy\"
+            }
+          },
+          \"modelArmorConfig\": {
+            \"userPromptTemplate\": \"projects/${PROJECT_ID}/locations/us/templates/ge-notebooklm-armor-tmpl\",
+            \"responseTemplate\": \"projects/${PROJECT_ID}/locations/us/templates/ge-notebooklm-armor-tmpl\"
           }
-        },
-        \"modelArmorConfig\": {
-          \"userPromptTemplate\": \"projects/${PROJECT_ID}/locations/${LOCATION}/templates/ge-notebooklm-armor-tmpl\",
-          \"responseTemplate\": \"projects/${PROJECT_ID}/locations/${LOCATION}/templates/ge-notebooklm-armor-tmpl\",
-          \"failureMode\": \"FAIL_CLOSED\"
         }
       }
-    }
-  }"
+    }" | jq .
+done
 ```
 
 > **[!NOTE] 설정 반영 대기 시간 (최대 10분)**
@@ -279,6 +290,76 @@ curl -X PATCH \
 - **한글 문서 내 `KOREA_RRN` 및 컨텍스트**: 주민등록번호(`880101-1234567`) 단독 기재 시 `Likelihood`가 `POSSIBLE`로 평가될 수 있으므로, `Content Policy`의 `Minimum Likelihood`를 `POSSIBLE`로 낮추거나 `'주민등록번호'`, `'RRN'` 등 주변 컨텍스트 단어를 함께 기재하여 테스트합니다.
 - **스캔 이미지(`Image-only PDF`)**: 텍스트 레이어 없이 통짜 이미지로 스캔된 `PDF`는 `OCR` 전 바이트 스트림에서 정규식/사전 매칭이 일어나지 않을 수 있으므로 텍스트 선택(드래그)이 가능한 문서로 테스트합니다.
 
-### 8.5 `CustomerConfigurationCache` 서버 캐시 전파 지연 (최대 10분)
-- `notebooklm-orch-server`는 프로젝트의 `notebooklmConfig`를 인메모리 캐시(`CustomerConfigurationCache`)에 최대 **10분간** 보관합니다. 정책을 최초로 바인딩하거나 수정한 직후에는 **최소 10분 경과 후** 새로운 `Source Upload`를 시도해야 변경된 정책이 확실하게 반영됩니다.
+### 8.5 `CustomerConfigurationCache` 서버 캐시 전파 지연 및 미초기화 이슈 (`b/564947655`)
+- `notebooklm-orch-server`는 프로젝트의 `notebooklmConfig`를 인메모리 캐시(`CustomerConfigurationCache`)에 보관합니다.
+- 특히 `SDP Policy`를 연결하기 전에 이미 해당 프로젝트에서 `NotebookLM`을 호출한 적이 있는 경우, 기존 `Borg Task`가 빈 정책(`policy: ""`)을 캐시하고 있을 수 있습니다 (`orchestration_server_main.cc`의 `CustomerConfigurationCache::Initialize()` 미호출 이슈, `b/564947655`).
+
+---
+
+## 9. `.txt` 파일조차 차단되지 않을 때 고객 환경 즉시 조치 `Guide` (`Step-by-Step`)
+
+고객 환경에서 `.pdf`/`.docx`뿐만 아니라 **일반 텍스트 파일(`.txt`)조차 차단되지 않는 경우**, 아래 **5단계 진단 및 조치 절차**를 순서대로 수행하여 문제를 즉시 해결합니다.
+
+### Step 1. `notebooklmConfig` 실제 바인딩 상태 확인 (`"failureMode"`로 인한 `PATCH` 거절 여부 점검)
+`Step 5.3` 또는 이전 스크립트로 `projects.patch` 호출 시 `notebooklmConfig.modelArmorConfig` 내부에 `"failureMode": "FAIL_CLOSED"`가 포함되어 있었다면, `OnePlatform API`가 `HTTP 400 Unknown name "failureMode"` 오류로 **요청 전체를 거절하여 `SDP Policy`까지 빈 상태(`{}`)로 남아있게 됩니다.**
+
+`Cloud Shell`에서 아래 명령어로 `global`과 `us` 양쪽의 실제 저장 상태를 조회합니다:
+```bash
+export PROJECT_ID=$(gcloud config get-value project)
+export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
+
+echo "=== [1] global notebooklmConfig ==="
+curl -s -X GET -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  "https://discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}" \
+  | jq '.customerProvidedConfig.notebooklmConfig'
+
+echo "=== [2] us notebooklmConfig ==="
+curl -s -X GET -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  "https://us-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}" \
+  | jq '.customerProvidedConfig.notebooklmConfig'
+```
+- **조치**: 출력 결과가 `null`이거나 `policy` 필드가 비어 있다면, 최신 `Repository`에서 `git pull` 후 `make apply-policy`를 실행하거나 위 **`Step 5.3`의 수정된 `curl` 명령(`failureMode` 제거본)**을 실행하여 `global`과 `us` 양쪽에 모두 바인딩합니다.
+
+### Step 2. `SDP Content Policy` 자체 판정(`Verdict`) 직접 검증 (`Allow (Alert only)` 오설정 여부 격리)
+`Console UI`에서 `Content Policy` 생성 시 기본값인 **`Allow (Alert only)`**가 선택되어 있으면 `.txt` 파일도 차단되지 않고 허용(`ALLOW`)됩니다. 아래 명령어로 `DLP API`에 직접 `.txt` 페이로드를 보내 **`"verdict": "BLOCK"`**이 반환되는지 확인합니다:
+```bash
+curl -s -X POST \
+  -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "Content-Type: application/json" \
+  -H "X-Goog-User-Project: ${PROJECT_ID}" \
+  "https://dlp.googleapis.com/v2/projects/${PROJECT_ID}/locations/global:applyContentPolicy" \
+  -d "{
+    \"contentPolicyName\": \"projects/${PROJECT_ID}/locations/global/contentPolicies/ge-notebooklm-sdp-policy\",
+    \"byteContentItem\": {
+      \"type\": \"TEXT_UTF8\",
+      \"data\": \"$(echo -n 'VIP 고객 카드번호: 4532-0151-1283-0366, 주민번호: 880101-1234567' | base64 -w 0)\"
+    }
+  }" | jq .
+```
+- **조치**:
+  - 만약 `"verdict": "ALLOW"`가 출력된다면 **`Security > Sensitive Data Protection > Configurations > Policy`** 메뉴에서 `ge-notebooklm-sdp-policy`를 열어 **`Determine verdict`**를 **`Block`**으로 변경하고 **`Fallback action`**도 **`Block`**으로 변경한 뒤 저장합니다.
+  - **`"verdict": "BLOCK"`**이 출력된다면 고객사의 `SDP Content Policy`와 `Template` 구성은 100% 정상입니다.
+
+### Step 3. `NotebookLM`에서 `Copied text` (`복사된 텍스트 붙여넣기`) vs `Upload files` (`.txt` 파일 업로드) 비교 테스트
+`Step 1`과 `Step 2`가 모두 정상(`"verdict": "BLOCK"`)임에도 `.txt` 파일 업로드가 차단되지 않는다면, `NotebookLM`에서 **`+ Add source` > `Copied text` (`복사된 텍스트`)**를 클릭하여 아래 텍스트를 직접 붙여넣어 봅니다:
+```text
+VIP 고객 카드번호: 4532-0151-1283-0366, 주민번호: 880101-1234567
+```
+- **결과 A (`Copied text`는 즉시 차단되고, `Upload files` `.txt`만 통과하는 경우)**:
+  - 파일 업로드 큐를 처리하는 통합 `LabsTailwindProcessingQueueReceiver`의 `enable_sdp_check` 플래그가 기본 비활성화(`false`)되어 발생한 백엔드 이슈(**`b/574535099`**)입니다.
+- **결과 B (`Copied text`와 `Upload files` `.txt` 모두 통과하고 `BigQuery` 감사 로그에도 기록이 없는 경우)**:
+  - 통합 `Orchestration` 서비스(`AddSourcesAction.kt`)의 `AddSourcesCheck.enable_sdp_check = false` (**`b/492615742`**) 또는 `CustomerConfigurationCache` 미초기화(**`b/564947655`**)에 해당합니다.
+
+### Step 4. 고객 환경에서 즉시 적용 가능한 100% 차단/보호 조치 (`Model Armor` `locations/us` 바인딩)
+백엔드의 `Upload` 단계 `SDP` 스캔이 `b/574535099` / `b/492615742`로 인해 우회되더라도, **`NotebookLM`의 모든 `LLM` 호출(`UncheckedVertexLlmInvoker.kt` — 소스 업로드 직후 자동 생성되는 요약/가이드 및 모든 `Chat` 질의응답)은 `Model Armor`(`CloudModelArmorHelper`)를 100% 거칩니다.**
+단, `NotebookLM Enterprise`는 `global` 인스턴스이더라도 **`locations/us` (또는 `eu`)에 생성된 `Model Armor Template`만 호출을 허용**합니다 (`locations/global` 템플릿 연결 시 내부 예외 발생 후 무시됨).
+
+따라서 고객 환경에서 아래 조치를 실행하면 **`.txt`, `.pdf`, `.docx` 등 모든 업로드 문서의 민감정보가 `NotebookLM` 요약 및 `Chat`에서 즉시 마스킹/차단**됩니다:
+1. **`make apply-policy` 재실행** (최신 스크립트는 자동으로 `global` 및 `us` 양쪽에 `DLP Template`, `Content Policy`, 그리고 **`locations/us` `Model Armor Template`**을 생성하여 `notebooklmConfig`에 바인딩합니다).
+2. 또는 `Console UI`에서 구성하는 경우:
+   - `Step 3.1`의 `Inspect` / `De-identify Template`을 **`us` (`Multi-region > US`)**에 생성합니다.
+   - `Step 4`의 `Model Armor Template`(`ge-notebooklm-armor-tmpl`)을 **`us` (`Multi-region > US`)**에 생성합니다.
+   - `Step 5.3`의 `Cloud Shell` 명령어로 `locations/us/templates/ge-notebooklm-armor-tmpl`을 `notebooklmConfig.modelArmorConfig`에 바인딩합니다.
+3. 설정 완료 후 **`Logging > Logs Explorer`**에서 `resource.type="modelarmor.googleapis.com/Template"`를 조회하면 `NotebookLM`에서 `.txt`/`.pdf` 문서를 기반으로 질문할 때마다 `Model Armor`가 실시간으로 작동하여 카드번호와 주민번호를 `[CREDIT_CARD_NUMBER]`, `[KOREA_RRN]`으로 마스킹하는 것을 즉시 확인할 수 있습니다.
+
 
