@@ -32,7 +32,7 @@ flowchart TD
 
 ## Step 1. `IAM & Admin` 메뉴에서 필수 `Service Agent` 권한 부여
 
-`Gemini Enterprise`/`NotebookLM`이 `Sensitive Data Protection (SDP)` 정책을 실행하고, `SDP`가 판정 결과를 `BigQuery`에 기록할 수 있도록 2개의 기본 `Service Agent`에 권한을 부여합니다.
+`Gemini Enterprise`/`NotebookLM`이 `Sensitive Data Protection (SDP)` 정책을 실행한 뒤 판정 결과를 `BigQuery`에 기록할 수 있도록 2개의 기본 `Service Agent`에 권한을 부여합니다.
 
 1. `Google Cloud Console` 좌측 탐색 메뉴(`☰`)에서 **`IAM & Admin` > `IAM`**으로 이동합니다.
 2. 화면 우측 상단의 **`Include Google-provided role grants` (Google에서 제공하는 역할 부여 포함)** 체크박스를 **반드시 체크**합니다.
@@ -74,7 +74,7 @@ flowchart TD
 4. **2) `De-identification Template` 생성**:
    - 다시 **`+ CREATE TEMPLATE`**을 클릭하고 **`Template type`**에서 `De-identify`를 선택합니다.
    - **`Template ID`**: `ge-notebooklm-deid-tmpl`, **`Location`**: 위와 동일하게(`global` 또는 `us`) 설정합니다.
-   - **`Transformation`** 방식에서 **`InfoType` transformation**을 선택하고, 규칙(`Rule`)으로 **`Replace with InfoType name`** (예: 카드번호를 `[CREDIT_CARD_NUMBER]`로 치환) 또는 **`Mask with character`** (`*` 마스킹)를 선택한 뒤 **`CREATE`**를 클릭합니다.
+   - **`Transformation`** 방식에서 **`InfoType` transformation**을 선택한 뒤 규칙(`Rule`)으로 **`Replace with InfoType name`** (예: 카드번호를 `[CREDIT_CARD_NUMBER]`로 치환) 또는 **`Mask with character`** (`*` 마스킹)를 지정해 **`CREATE`**를 클릭합니다.
 
 ### 3.2 `Content Policy` 생성 (`File Upload` 및 `Data Connector` 스캔용)
 1. `Sensitive Data Protection` 화면 상단에서 **`CONFIGURATION` > `Content policies`** 탭을 클릭하고 **`+ CREATE POLICY`**를 클릭합니다.
@@ -106,7 +106,7 @@ flowchart TD
    - **`Template ID`**: `ge-notebooklm-armor-tmpl`
    - **`Region` (`Location`)**:
      - `GE Assistant`가 `global`인 경우 `global`에 1개 생성합니다.
-     - **[필수 주의사항]** **`NotebookLM Enterprise`는 `NotebookLM` 인스턴스가 `global`에 있더라도 반드시 `Multi-region > us` (또는 `eu`)에 생성된 `Model Armor Template`만 허용**합니다 (`locations/global` 템플릿을 `NotebookLM`에 연결하면 백엔드에서 `Allowed locations: [us, eu]` 예외가 발생하여 스캔이 무시됨). 따라서 **`us` (`Multi-region > US`)에도 동일한 이름(`ge-notebooklm-armor-tmpl`)으로 템플릿을 반드시 생성**합니다 (사전에 `Step 3.1`의 `Inspect` / `De-identify Template`도 `us`에 함께 생성).
+     - **[필수 주의사항]** **`NotebookLM Enterprise`는 `NotebookLM` `Instance`가 `global`에 있더라도 반드시 `Multi-region > us` (또는 `eu`)에 생성된 `Model Armor Template`만 허용**합니다 (`locations/global` 템플릿을 `NotebookLM`에 연결하면 백엔드에서 `Allowed locations: [us, eu]` 예외가 발생하여 스캔이 무시됨). 따라서 **`us` (`Multi-region > US`)에도 동일한 이름(`ge-notebooklm-armor-tmpl`)으로 템플릿을 반드시 생성**해야 합니다 (사전에 `Step 3.1`의 `Inspect` / `De-identify Template`도 `us`에 함께 생성).
 4. **`Filters` 구성**:
    - **`Prompt injection and jailbreak detection`**: 체크 활성화 (`Confidence level`: `Medium and above`)
    - **`Sensitive Data Protection (SDP)`**: 체크 활성화
@@ -130,23 +130,23 @@ flowchart TD
 
 ### 5.1 `Console UI`에서 `Assistant` 및 `NotebookLM` 업로드용 `SDP Content Policy` 연결
 1. 좌측 메뉴(`☰`)에서 **`Gemini Enterprise` (또는 `AI Applications` / `Agentspace`) > `Security`** 메뉴로 이동합니다.
-2. **`Sensitive Data Protection configuration`** 탭을 선택합니다.
+2. **`Sensitive Data Protection configuration`** 탭을 선택해 주세요.
 3. 상단 **`Region`** 드롭다운에서 사용 중인 `Location` (**`global`** 및 **`us`**)을 각각 선택하여 아래 설정을 적용합니다.
 4. **1) `Assistant setting` 섹션**:
    - **`Edit`**를 클릭하고 `Step 3.2`에서 생성한 `ge-notebooklm-sdp-policy`를 선택하여 저장합니다.
 5. **2) `NotebookLM setting` 섹션 (핵심!)**:
    - 하단 `NotebookLM setting`의 **`Edit`**를 클릭합니다.
-   - **`Enable Sensitive Data Protection for uploads`** 체크박스를 **반드시 체크**합니다.
+   - **`Enable Sensitive Data Protection for uploads`** 체크박스를 **반드시 체크**해야 합니다.
    - 드롭다운에서 `ge-notebooklm-sdp-policy`를 선택하고 **`Save`**를 클릭합니다.
 
 ### 5.2 `Console UI`에서 `GE App`에 `Model Armor Template` 연결
 1. **`Gemini Enterprise` > `Apps`**로 이동하여 사용 중인 `GE App`을 클릭합니다.
-2. 좌측 하위 메뉴에서 **`Configurations` > `Assistant`** 탭으로 이동합니다.
+2. 좌측 하위 메뉴에서 **`Configurations` > `Assistant`** 탭으로 이동해 주세요.
 3. **`Model Armor`** 설정 영역에서 **`Edit`**를 클릭합니다.
 4. **`Prompt template`** 및 **`Response template`** 드롭다운에서 `Step 4`에서 생성한 `ge-notebooklm-armor-tmpl`을 선택하고 **`Save`**를 클릭합니다.
 
 ### 5.3 `NotebookLM`에 `SDP Policy` 및 `us` `Model Armor Template` 동시 바인딩 (`Console` 내 `Cloud Shell` 1회 실행)
-`NotebookLM Enterprise`에서 `SDP Policy`와 `Model Armor`가 누락 없이 동작하도록 하려면, `Google Cloud Console` 우측 상단의 **`Activate Cloud Shell` (`>_`)** 버튼을 클릭하고 아래 명령어를 복사해 붙여넣습니다.
+`NotebookLM Enterprise`에서 `SDP Policy`와 `Model Armor`가 누락 없이 동작하도록 하려면, `Google Cloud Console` 우측 상단의 **`Activate Cloud Shell` (`>_`)** 버튼을 클릭하고 아래 명령어를 복사해 붙여넣어 주세요.
 
 > **[!IMPORTANT] `NotebookLM` `projects.patch` 호출 시 필수 주의사항 2가지**
 > 1. **`failureMode` 필드 제외 필수**: `GE Assistant`와 달리 `notebooklmConfig.modelArmorConfig` 스키마는 `userPromptTemplate`과 `responseTemplate`만 지원하며 `"failureMode"` 필드를 지원하지 않습니다. `"failureMode": "FAIL_CLOSED"`를 포함하면 `HTTP 400 Invalid JSON payload received. Unknown name "failureMode"` 오류가 발생하여 **`SDP Policy`를 포함한 전체 설정이 거부(`{}`)**됩니다.
@@ -199,7 +199,7 @@ done
 1. **`Cloud Storage` > `Buckets`**로 이동하여 두 개의 `Bucket`을 생성합니다:
    - 원본 스테이징 버킷 (`Raw Bucket`): `<PROJECT_ID>-ge-sdp-raw-docs` (여기에 샘플 파일인 `sample_data/vip_customer_claim_raw.txt` 및 `store_operation_policy_clean.txt` 업로드)
    - 마스킹 완료 버킷 (`Masked Bucket`): `<PROJECT_ID>-ge-sdp-masked-docs` (`GE Data Store`에 실제로 연결할 버킷)
-2. **`Security` > `Sensitive Data Protection`**으로 이동하여 상단 **`INSPECTION` > `Jobs and job triggers`** 탭을 클릭하고 **`+ CREATE JOB OR TRIGGER`**를 선택합니다.
+2. **`Security` > `Sensitive Data Protection`**으로 이동하여 상단 **`INSPECTION` > `Jobs and job triggers`** 탭을 클릭하고 **`+ CREATE JOB OR TRIGGER`**를 선택해 주세요.
 3. **`Choose input data`**:
    - **`Storage type`**: `Cloud Storage` 선택
    - **`Include URL`**: `gs://<PROJECT_ID>-ge-sdp-raw-docs/` 지정
@@ -211,7 +211,7 @@ done
    - **`Default transformation template`**: `Step 3.1`에서 만든 `ge-notebooklm-deid-tmpl` 입력
    - **`File types to transform`**: `TEXT_FILE` 등 대상 파일 유형 선택 후 **`CREATE`**를 클릭하여 작업을 실행합니다.
 6. 작업이 완료되면 `gs://<PROJECT_ID>-ge-sdp-masked-docs` 버킷에 신용카드 번호(`4532-0151-1283-0366`)와 주민번호가 `[CREDIT_CARD_NUMBER]`, `[KOREA_RRN]`으로 마스킹된 사본 파일이 자동 생성됩니다.
-7. **`Gemini Enterprise` > `Data Stores`** 메뉴에서 `GCS Data Store`의 소스 경로를 `gs://<PROJECT_ID>-ge-sdp-masked-docs`로 연결(또는 `Sync` 실행)합니다.
+7. **`Gemini Enterprise` > `Data Stores`** 메뉴에서 `GCS Data Store`의 소스 경로를 `gs://<PROJECT_ID>-ge-sdp-masked-docs`로 연결(또는 `Sync` 실행)해 주세요.
 
 ---
 
@@ -228,7 +228,7 @@ done
 
 ### 7.2 `BigQuery Studio`에서 `SDP Content Policy` 판정 로그 확인
 1. **`BigQuery` > `Studio`**로 이동하여 **`+ SQL query`** 버튼을 클릭합니다.
-2. 아래 `SQL Query`를 붙여넣고 **`RUN`**을 클릭하면 파일별 `BLOCK` / `ALLOW` 판정 결과와 탐지된 `InfoType` (`CREDIT_CARD_NUMBER`, `KOREA_RRN`)을 즉시 확인할 수 있습니다:
+2. 아래 `SQL Query`를 붙여넣고 **`RUN`**을 클릭하면 파일별 `BLOCK` / `ALLOW` 판정 결과와 탐지된 `InfoType` (`CREDIT_CARD_NUMBER`, `KOREA_RRN`)이 즉시 조회됩니다:
    ```sql
    SELECT
      timestamp,
@@ -257,18 +257,17 @@ done
 
 ## 8. 개인 `PC` 저장 문서 `Upload` 시 `SDP` 미작동 원인 분석 및 조치 `Guide`
 
-가이드에 따라 설정을 완료했음에도 개인 `PC`에 저장된 문서(`File`)를 `NotebookLM Enterprise`에 `Upload`할 때 `SDP` 차단이 작동하지 않는 경우, 아래 **6가지 핵심 원인** 중 어디에 해당하는지 **3단계 진단 명령**으로 즉시 격리하고 조치할 수 있습니다.
+가이드에 따라 설정을 완료했음에도 개인 `PC`에 저장된 문서(`File`)를 `NotebookLM Enterprise`에 `Upload`할 때 `SDP` 차단이 작동하지 않는 경우, 아래 핵심 원인을 점검해 즉시 격리하고 조치할 수 있습니다.
 
 ### 8.1 파일 `Format`(`.txt`/`.md` vs `.pdf`/`.docx`/`.pptx`/`.xlsx`)별 `Backend` 스캔 경로 차이 (`[확인됨 / Verified]`)
-`NotebookLM Enterprise`의 `Source Upload` 파이프라인은 내부적으로 **1차 `Blobstore Queue Receiver`(`ProcessingQueueReceiver`)**와 **2차 `Orchestration Server`(`AddSourcesAction`)**의 2단계로 구성되어 있습니다.
+`NotebookLM Enterprise`의 `Source Upload` `Pipeline`은 내부적으로 **1차 `Blobstore Queue Receiver`(`ProcessingQueueReceiver`)**와 **2차 `Orchestration Server`(`AddSourcesAction`)**의 2단계로 구성되어 있습니다.
 - **`.txt`, `.md` 파일 및 `Copied Text` (`Text` 기반 `Source`)**:
-  - 2차 관문(`AddSourcesAction.kt`)의 `isContentEnabledSdp` 조건(`hasTextContent() || hasVideoContent() || hasWebContent()`)이 `true`로 평가되어 **`ContentSdpValidator`를 통해 텍스트 단위로 즉시 `SDP` 검사 및 차단**이 수행됩니다.
+  - 2차 관문의 텍스트 콘텐츠 검사 조건이 충족되어 텍스트 단위로 즉시 `SDP` 검사 및 차단이 수행됩니다.
 - **`.pdf`, `.docx`, `.pptx`, `.xlsx` 파일 (`Document` / `Multimodal` 기반 `Source`)**:
-  - `ProcessMessagesAction.kt`에서 `tailwindDocContent` 또는 `inputTailwindDocContent`(`Multimodal PDF`)로 변환되어 2차 관문(`AddSourcesAction.kt`)으로 전달되며, 2차 관문의 `isContentEnabledSdp` 조건에서 제외(`false` 또는 조기 `return`)됩니다.
-  - 따라서 `.pdf`, `.docx`, `.pptx`, `.xlsx` 파일은 오직 **1차 관문(`ProcessingQueueReceiver`의 `Byte` 단위 `DlpService.ApplyContentPolicy` 호출)**에서만 검사되는데, 통합 `ProcessingQueueReceiver` 전환 이후 `enable_sdp_check` 실험 `Flag`가 비활성화되어 있거나 비동기 `PDF` 인제스천 경로(`AddSourcesAsync`)를 타는 경우 **`.txt` 파일은 차단되지만 `.pdf`/`.docx` 파일은 `Upload` 단계 `SDP`를 통과**하는 현상이 발생합니다.
+  - `Document` / `Multimodal` 객체로 변환되어 2차 관문으로 전달되므로, 1차 관문(`Byte` 단위 `DlpService.ApplyContentPolicy` 호출)에서만 검사됩니다.
   - **조치 방안**:
-    1. **검증 분리**: 동일한 민감정보가 포함된 **`.txt` 파일(또는 `Copied Text`)**과 **`.pdf`/`.docx` 파일**을 각각 `Upload`하여 `.txt`는 차단되고 `.pdf`/`.docx`만 통과하는지 확인합니다.
-    2. **`Model Armor` 동시 바인딩 (필수 다계층 방어)**: `.pdf`/`.docx` 파일이 1차 `Upload` 관문을 통과하더라도, `NotebookLM`에 **`Model Armor`(`userPromptTemplate` / `responseTemplate`, `SDP Filter` 활성화)**를 함께 바인딩하면 문서 인덱싱 직후 자동 생성되는 `Notebook Guide`/요약 및 사용자 `Chat` 질의응답 시점(`UncheckedVertexLlmInvoker`)에 `Model Armor`가 작동하여 민감정보 노출을 차단합니다.
+    1. **검증 분리**: 동일한 민감정보가 포함된 **`.txt` 파일(또는 `Copied Text`)**과 **`.pdf`/`.docx` 파일**을 각각 `Upload`하여 `.txt`는 차단되고 `.pdf`/`.docx`만 통과하는지 비교합니다.
+    2. **`Model Armor` 동시 바인딩 (필수 다계층 방어)**: `.pdf`/`.docx` 파일이 1차 `Upload` 관문을 통과하더라도, `NotebookLM`에 **`locations/us` `Model Armor Template`(`userPromptTemplate` / `responseTemplate`, `SDP Filter` 활성화)**을 함께 바인딩하면 문서 인덱싱 직후 자동 생성되는 `Notebook Guide`/요약 및 사용자 `Chat` 질의응답 시점에 `Model Armor`가 작동해 민감정보 노출을 차단합니다.
 
 ### 8.2 `API Payload` 필드명 오류(`sdpPolicy` vs `policy`) 및 덮어쓰기(`Overwrite`) 현상
 - `Console UI`에서 `NotebookLM` `SDP`를 설정한 뒤, `projects.patch` `API`를 호출할 때 `sensitiveDataProtectionPolicy` 하위 필드명을 `"policy"`가 아닌 `"sdpPolicy"`로 전달했거나 `modelArmorConfig`만 포함하여 호출하면 기존 `policy` 값이 빈 문자열(`""`)로 초기화됩니다.
@@ -279,49 +278,51 @@ done
     -H "Authorization: Bearer $(gcloud auth print-access-token)" \
     "https://discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}" | jq '.customerProvidedConfig.notebooklmConfig'
   ```
-  출력 결과에서 `dataProtectionPolicy.sensitiveDataProtectionPolicy.policy` 값이 `"projects/.../locations/.../contentPolicies/..."` 형태로 정확히 들어있는지 확인하고, 비어 있다면 `make apply-policy` (최신 커밋 기준) 또는 `Console UI`에서 재저장합니다.
+  출력 결과에서 `dataProtectionPolicy.sensitiveDataProtectionPolicy.policy` 값이 `"projects/.../locations/.../contentPolicies/..."` 형태로 정확히 들어있는지 확인한 뒤 비어 있다면 `make apply-policy` 또는 `Console UI`에서 재저장합니다.
 
 ### 8.3 `Location` (`global` vs `us` / `eu`) 불일치
-- `NotebookLM Enterprise`는 **노트북이 생성된 `Location`과 동일한 `Location`의 `Customer` 설정(`notebooklmConfig`)**만 참조합니다.
-- `Policy`는 `global`에 바인딩했으나 실제 `NotebookLM` 인스턴스가 `us` 멀티리전(또는 그 반대)에 생성된 경우 정책이 적용되지 않으므로 두 `Location`이 일치하는지 확인합니다.
+- `NotebookLM Enterprise`는 **`Notebook`이 생성된 `Location`과 동일한 `Location`의 `Customer` 설정(`notebooklmConfig`)**만 참조합니다.
+- `Policy`는 `global`에 바인딩했으나 실제 `NotebookLM` `Instance`가 `us` `Multi-Region`(또는 그 반대)에 생성된 경우 정책이 적용되지 않으므로 두 `Location`이 일치하는지 확인해야 합니다.
 
 ### 8.4 테스트 문서 내 민감정보 데이터 형식 (`Luhn Checksum` 및 `Likelihood` 조건)
 - **`CREDIT_CARD_NUMBER` (`Luhn Checksum` 검증)**: `1234-5678-1234-5678`과 같이 `Luhn` 알고리즘을 만족하지 않는 임의의 16자리 숫자는 `SDP`가 신용카드 번호로 탐지하지 않습니다. 반드시 유효한 테스트 번호(예: `4532-0151-1283-0366`)를 포함해야 합니다.
-- **한글 문서 내 `KOREA_RRN` 및 컨텍스트**: 주민등록번호(`880101-1234567`) 단독 기재 시 `Likelihood`가 `POSSIBLE`로 평가될 수 있으므로, `Content Policy`의 `Minimum Likelihood`를 `POSSIBLE`로 낮추거나 `'주민등록번호'`, `'RRN'` 등 주변 컨텍스트 단어를 함께 기재하여 테스트합니다.
+- **한글 문서 내 `KOREA_RRN` 및 주변 `Context`**: 주민등록번호(`880101-1234567`) 단독 기재 시 `Likelihood`가 `POSSIBLE`로 평가될 수 있으므로, `Content Policy`의 `Minimum Likelihood`를 `POSSIBLE`로 낮추거나 `'주민등록번호'`, `'RRN'` 등 주변 `Context` 단어를 함께 기재해 테스트합니다.
 - **스캔 이미지(`Image-only PDF`)**: 텍스트 레이어 없이 통짜 이미지로 스캔된 `PDF`는 `OCR` 전 바이트 스트림에서 정규식/사전 매칭이 일어나지 않을 수 있으므로 텍스트 선택(드래그)이 가능한 문서로 테스트합니다.
 
-### 8.5 `CustomerConfigurationCache` 서버 캐시 전파 지연 및 미초기화 이슈 (`b/564947655`)
-- `notebooklm-orch-server`는 프로젝트의 `notebooklmConfig`를 인메모리 캐시(`CustomerConfigurationCache`)에 보관합니다.
-- 특히 `SDP Policy`를 연결하기 전에 이미 해당 프로젝트에서 `NotebookLM`을 호출한 적이 있는 경우, 기존 `Borg Task`가 빈 정책(`policy: ""`)을 캐시하고 있을 수 있습니다 (`orchestration_server_main.cc`의 `CustomerConfigurationCache::Initialize()` 미호출 이슈, `b/564947655`).
+### 8.5 서버 설정 `Cache` 전파 지연 (`b/564947655`)
+- `NotebookLM` 서버는 프로젝트의 `notebooklmConfig`를 인메모리 `Cache`에 보관합니다.
+- 특히 `SDP Policy`를 연결하기 전에 이미 해당 프로젝트에서 `NotebookLM`을 호출한 적이 있는 경우, 기존 서버가 빈 정책(`policy: ""`)을 캐시하고 있을 수 있습니다 (`b/564947655`).
 
 ---
 
-## 9. `.txt` 파일조차 차단되지 않을 때 고객 환경 즉시 조치 `Guide` (`Step-by-Step`)
+## 9. `.txt` 파일조차 차단되지 않을 때 고객 환경 즉시 실행 4단계 조치 `Guide`
 
-고객 환경에서 `.pdf`/`.docx`뿐만 아니라 **일반 텍스트 파일(`.txt`)조차 차단되지 않는 경우**, 아래 **5단계 진단 및 조치 절차**를 순서대로 수행하여 문제를 즉시 해결합니다.
+고객 환경에서 `.pdf`/`.docx`뿐만 아니라 **일반 텍스트(`File` `Format`: `.txt`)조차 차단되지 않는 경우**, 아래 **Step 1부터 Step 4까지** 순서대로 실행하여 원인을 격리하고 조치합니다.
 
-### Step 1. `notebooklmConfig` 실제 바인딩 상태 확인 (`"failureMode"`로 인한 `PATCH` 거절 여부 점검)
-`Step 5.3` 또는 이전 스크립트로 `projects.patch` 호출 시 `notebooklmConfig.modelArmorConfig` 내부에 `"failureMode": "FAIL_CLOSED"`가 포함되어 있었다면, `OnePlatform API`가 `HTTP 400 Unknown name "failureMode"` 오류로 **요청 전체를 거절하여 `SDP Policy`까지 빈 상태(`{}`)로 남아있게 됩니다.**
+### Step 1. 현재 `notebooklmConfig` 바인딩 상태 진단 (`global` & `us` 동시 조회)
+`Step 5.3` 또는 이전 스크립트로 `projects.patch` 호출 시 `notebooklmConfig.modelArmorConfig` 내부에 `"failureMode": "FAIL_CLOSED"`가 포함되어 있었다면, `API`가 `HTTP 400 Unknown name "failureMode"` 오류로 요청 전체를 거부해 `SDP Policy`까지 빈 상태(`{}`)로 남게 됩니다.
 
 `Cloud Shell`에서 아래 명령어로 `global`과 `us` 양쪽의 실제 저장 상태를 조회합니다:
 ```bash
 export PROJECT_ID=$(gcloud config get-value project)
 export PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
 
-echo "=== [1] global notebooklmConfig ==="
+echo "=== [1] global Location에 저장된 notebooklmConfig ==="
 curl -s -X GET -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "X-Goog-User-Project: ${PROJECT_ID}" \
   "https://discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}" \
   | jq '.customerProvidedConfig.notebooklmConfig'
 
-echo "=== [2] us notebooklmConfig ==="
+echo "=== [2] us Location에 저장된 notebooklmConfig ==="
 curl -s -X GET -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+  -H "X-Goog-User-Project: ${PROJECT_ID}" \
   "https://us-discoveryengine.googleapis.com/v1alpha/projects/${PROJECT_NUMBER}" \
   | jq '.customerProvidedConfig.notebooklmConfig'
 ```
-- **조치**: 출력 결과가 `null`이거나 `policy` 필드가 비어 있다면, 최신 `Repository`에서 `git pull` 후 `make apply-policy`를 실행하거나 위 **`Step 5.3`의 수정된 `curl` 명령(`failureMode` 제거본)**을 실행하여 `global`과 `us` 양쪽에 모두 바인딩합니다.
+- **조치**: 출력 결과가 `null`이거나 `policy` 필드가 비어 있다면, 최신 `Repository`에서 `git pull` 후 `make apply-policy`를 실행하거나 위 **`Step 5.3`의 표준 `curl` 명령(`failureMode` 제거본)**을 실행해 `global`과 `us` 양쪽에 모두 바인딩합니다.
 
-### Step 2. `SDP Content Policy` 자체 판정(`Verdict`) 직접 검증 (`Allow (Alert only)` 오설정 여부 격리)
-`Console UI`에서 `Content Policy` 생성 시 기본값인 **`Allow (Alert only)`**가 선택되어 있으면 `.txt` 파일도 차단되지 않고 허용(`ALLOW`)됩니다. 아래 명령어로 `DLP API`에 직접 `.txt` 페이로드를 보내 **`"verdict": "BLOCK"`**이 반환되는지 확인합니다:
+### Step 2. `SDP Content Policy` 자체 판정(`Verdict`) 단독 검증
+`Console UI`에서 `Content Policy` 생성 시 기본값인 **`Allow (Alert only)`**가 선택되어 있으면 `.txt` 파일도 차단되지 않고 허용(`ALLOW`)됩니다. 아래 명령어로 `DLP API`에 직접 `.txt` 샘플 `Payload`를 보내 **`"verdict": "BLOCK"`**이 반환되는지 확인합니다:
 ```bash
 curl -s -X POST \
   -H "Authorization: Bearer $(gcloud auth print-access-token)" \
@@ -337,29 +338,26 @@ curl -s -X POST \
   }" | jq .
 ```
 - **조치**:
-  - 만약 `"verdict": "ALLOW"`가 출력된다면 **`Security > Sensitive Data Protection > Configurations > Policy`** 메뉴에서 `ge-notebooklm-sdp-policy`를 열어 **`Determine verdict`**를 **`Block`**으로 변경하고 **`Fallback action`**도 **`Block`**으로 변경한 뒤 저장합니다.
-  - **`"verdict": "BLOCK"`**이 출력된다면 고객사의 `SDP Content Policy`와 `Template` 구성은 100% 정상입니다.
+  - 만약 `"verdict": "ALLOW"`가 출력된다면 **`Security > Sensitive Data Protection > Configurations > Policy`** 메뉴에서 `ge-notebooklm-sdp-policy`를 열어 **`Determine verdict`**를 **`Block`**으로 변경하고 **`Fallback action`**도 **`Block`**으로 지정한 뒤 저장합니다.
+  - **`"verdict": "BLOCK"`**이 출력된다면 고객사의 `SDP Content Policy`와 `Template` 구성은 정상입니다.
 
-### Step 3. `NotebookLM`에서 `Copied text` (`복사된 텍스트 붙여넣기`) vs `Upload files` (`.txt` 파일 업로드) 비교 테스트
-`Step 1`과 `Step 2`가 모두 정상(`"verdict": "BLOCK"`)임에도 `.txt` 파일 업로드가 차단되지 않는다면, `NotebookLM`에서 **`+ Add source` > `Copied text` (`복사된 텍스트`)**를 클릭하여 아래 텍스트를 직접 붙여넣어 봅니다:
-```text
-VIP 고객 카드번호: 4532-0151-1283-0366, 주민번호: 880101-1234567
-```
-- **결과 A (`Copied text`는 즉시 차단되고, `Upload files` `.txt`만 통과하는 경우)**:
-  - 파일 업로드 큐를 처리하는 통합 `LabsTailwindProcessingQueueReceiver`의 `enable_sdp_check` 플래그가 기본 비활성화(`false`)되어 발생한 백엔드 이슈(**`b/574535099`**)입니다.
-- **결과 B (`Copied text`와 `Upload files` `.txt` 모두 통과하고 `BigQuery` 감사 로그에도 기록이 없는 경우)**:
-  - 통합 `Orchestration` 서비스(`AddSourcesAction.kt`)의 `AddSourcesCheck.enable_sdp_check = false` (**`b/492615742`**) 또는 `CustomerConfigurationCache` 미초기화(**`b/564947655`**)에 해당합니다.
+### Step 3. `global`/`us` 양쪽 `Policy` 바인딩 및 `locations/us` `Model Armor Template` 구성
+`NotebookLM Enterprise`는 `global` `Instance`이더라도 **`locations/us` (또는 `eu`)에 생성된 `Model Armor Template`만 호출을 허용**합니다 (`locations/global` 템플릿 연결 시 내부 예외 발생 후 생략됨).
 
-### Step 4. 고객 환경에서 즉시 적용 가능한 100% 차단/보호 조치 (`Model Armor` `locations/us` 바인딩)
-백엔드의 `Upload` 단계 `SDP` 스캔이 `b/574535099` / `b/492615742`로 인해 우회되더라도, **`NotebookLM`의 모든 `LLM` 호출(`UncheckedVertexLlmInvoker.kt` — 소스 업로드 직후 자동 생성되는 요약/가이드 및 모든 `Chat` 질의응답)은 `Model Armor`(`CloudModelArmorHelper`)를 100% 거칩니다.**
-단, `NotebookLM Enterprise`는 `global` 인스턴스이더라도 **`locations/us` (또는 `eu`)에 생성된 `Model Armor Template`만 호출을 허용**합니다 (`locations/global` 템플릿 연결 시 내부 예외 발생 후 무시됨).
-
-따라서 고객 환경에서 아래 조치를 실행하면 **`.txt`, `.pdf`, `.docx` 등 모든 업로드 문서의 민감정보가 `NotebookLM` 요약 및 `Chat`에서 즉시 마스킹/차단**됩니다:
-1. **`make apply-policy` 재실행** (최신 스크립트는 자동으로 `global` 및 `us` 양쪽에 `DLP Template`, `Content Policy`, 그리고 **`locations/us` `Model Armor Template`**을 생성하여 `notebooklmConfig`에 바인딩합니다).
-2. 또는 `Console UI`에서 구성하는 경우:
+1. **자동화 `Repository` 사용 시**: `git pull origin main && make apply-policy`를 실행하면 `global` 및 `us` 양쪽에 `DLP Template`, `Content Policy`, 그리고 **`locations/us` `Model Armor Template`**을 생성하여 `notebooklmConfig`에 바인딩합니다.
+2. **`Console UI` 직접 구성 시**:
    - `Step 3.1`의 `Inspect` / `De-identify Template`을 **`us` (`Multi-region > US`)**에 생성합니다.
    - `Step 4`의 `Model Armor Template`(`ge-notebooklm-armor-tmpl`)을 **`us` (`Multi-region > US`)**에 생성합니다.
    - `Step 5.3`의 `Cloud Shell` 명령어로 `locations/us/templates/ge-notebooklm-armor-tmpl`을 `notebooklmConfig.modelArmorConfig`에 바인딩합니다.
-3. 설정 완료 후 **`Logging > Logs Explorer`**에서 `resource.type="modelarmor.googleapis.com/Template"`를 조회하면 `NotebookLM`에서 `.txt`/`.pdf` 문서를 기반으로 질문할 때마다 `Model Armor`가 실시간으로 작동하여 카드번호와 주민번호를 `[CREDIT_CARD_NUMBER]`, `[KOREA_RRN]`으로 마스킹하는 것을 즉시 확인할 수 있습니다.
+
+### Step 4. `Copied text` vs `Upload files (.txt)` 교차 검증 및 실시간 보호 확인
+`Step 3` 설정을 마친 뒤 새 `Notebook`을 열고 **`+ Add source` > `Copied text` (`복사된 텍스트`)**와 **`+ Add source` > `Upload files` (`.txt` 파일 업로드)**에 각각 아래 문장을 넣어 비교합니다:
+```text
+VIP 고객 카드번호: 4532-0151-1283-0366, 주민번호: 880101-1234567
+```
+- **Case 1 (`Copied text`와 `Upload files .txt`가 모두 즉시 차단되는 경우)**: `Step 1~3`에서 교정한 `"failureMode"` 오류 또는 `Allow` 판정 옵션, `Location` 불일치가 원인이었으며 정상 해결된 상태입니다.
+- **Case 2 (`Copied text`는 즉시 차단되나 `Upload files .txt`만 통과하는 경우)**: 파일 업로드 큐를 처리하는 `Backend` 서비스의 `SDP` 검사 `Flag` 비활성화 이슈(`b/574535099`)에 해당합니다.
+- **Case 3 (`Copied text`와 `Upload files .txt` 모두 통과하고 `BigQuery` 감사 로그에도 기록이 없는 경우)**: `Backend`의 `AddSources` `SDP` `Flag` 비활성화(`b/492615742`) 또는 설정 `Cache` 갱신 지연(`b/564947655`)에 해당합니다.
+- **실시간 마스킹 작동 확인**: `Case 2` 또는 `Case 3`으로 인해 파일이 `Source` 목록에 추가되더라도, `Step 3`에서 연결한 **`locations/us` `Model Armor Template`**이 `Notebook` 요약 및 모든 `Chat` 질의응답 시점에 작동해 카드번호와 주민번호를 `[CREDIT_CARD_NUMBER]`, `[KOREA_RRN]`으로 즉시 마스킹합니다 (`Logging > Logs Explorer`에서 `resource.type="modelarmor.googleapis.com/Template"`로 확인 가능). `Upload` 단계 차단까지 활성화하려면 `Google Cloud Support Case`에 `Project Number`와 함께 내부 참조 번호(`b/574535099`, `b/492615742`, `b/564947655`)를 전달해 `Backend Flag` 활성화를 요청해 주시기 바랍니다.
 
 
